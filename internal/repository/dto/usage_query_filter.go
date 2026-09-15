@@ -18,6 +18,7 @@ type UsageQueryFilter struct {
 	Model           string
 	AuthIndex       string
 	APIGroupKey     string
+	AppAPIGroupKey  string
 	Result          string
 }
 

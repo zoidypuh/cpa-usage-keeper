@@ -29,9 +29,16 @@ type usageSourceFilterOption struct {
 	DisplayName string `json:"displayName"`
 }
 
+type usageAPIKeyFilterOption struct {
+	Value       string `json:"value"`
+	Label       string `json:"label"`
+	DisplayName string `json:"displayName"`
+}
+
 type usageEventFilterOptionsResponse struct {
 	Models  []string                  `json:"models"`
 	Sources []usageSourceFilterOption `json:"sources"`
+	APIKeys []usageAPIKeyFilterOption `json:"api_keys"`
 }
 
 type usageEventPayload struct {
@@ -90,6 +97,17 @@ func registerUsageEventsRoute(
 		}
 		c.JSON(http.StatusOK, gin.H{"sources": sources})
 	})
+
+	apiKeyFilterHandler := func(c *gin.Context) {
+		apiKeys, err := loadUsageEventAPIKeyFilterOptions(c, usageProvider, cpaAPIKeyProvider)
+		if err != nil {
+			writeInternalError(c, "list usage event API key filter options failed", err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"api_keys": apiKeys})
+	}
+	router.GET("/usage/events/filters/api-keys", apiKeyFilterHandler)
+	router.GET("/usage/events/filters/apps", apiKeyFilterHandler)
 
 	router.GET("/usage/events", func(c *gin.Context) {
 		if usageProvider == nil {
@@ -211,7 +229,7 @@ func usageEventAPIKeyLabel(apiGroupKey string, apiKeyInfos map[string]analysisAP
 	if apiKey == "" {
 		return ""
 	}
-	return analysisAPIKeyLabel(apiKey, apiKeyInfos)
+	return usageEventPresentedAPIKeyLabel(apiKey, apiKeyInfos)
 }
 
 func usageEventPublicSource(row servicedto.UsageEventRecord, identity resolvedUsageIdentity, matched bool) (string, bool) {
@@ -238,6 +256,84 @@ func loadUsageEventModelFilterOptions(c *gin.Context, usageProvider service.Usag
 		return nil, err
 	}
 	return options.Models, nil
+}
+
+func loadUsageEventAPIKeyFilterOptions(c *gin.Context, usageProvider service.UsageProvider, cpaAPIKeyProvider service.CPAAPIKeyProvider) ([]usageAPIKeyFilterOption, error) {
+	if usageProvider == nil {
+		return []usageAPIKeyFilterOption{}, nil
+	}
+	options, err := usageProvider.ListUsageEventFilterOptions(c.Request.Context(), servicedto.UsageFilter{})
+	if err != nil {
+		return nil, err
+	}
+	apiKeyInfos, err := loadCPAAPIKeyInfos(c, cpaAPIKeyProvider)
+	if err != nil {
+		return nil, err
+	}
+	return buildUsageAPIKeyFilterOptions(options.APIKeys, apiKeyInfos), nil
+}
+
+func buildUsageAPIKeyFilterOptions(apiKeys []string, apiKeyInfos map[string]analysisAPIKeyInfo) []usageAPIKeyFilterOption {
+	if len(apiKeys) == 0 {
+		return []usageAPIKeyFilterOption{}
+	}
+	options := make([]usageAPIKeyFilterOption, 0, len(apiKeys))
+	seen := make(map[string]struct{}, len(apiKeys))
+	for _, apiKey := range apiKeys {
+		value := strings.TrimSpace(apiKey)
+		if value == "" {
+			continue
+		}
+		if !isReadableUsageAPIKeyLabel(value) {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		label := usageEventPresentedAPIKeyLabel(value, apiKeyInfos)
+		options = append(options, usageAPIKeyFilterOption{Value: value, Label: label, DisplayName: label})
+	}
+	return options
+}
+
+func usageEventPresentedAPIKeyLabel(value string, apiKeyInfos map[string]analysisAPIKeyInfo) string {
+	if info, ok := apiKeyInfos[value]; ok && info.Label != "" {
+		return info.Label
+	}
+	if isReadableUsageAPIKeyLabel(value) {
+		return value
+	}
+	return helper.RedactSensitiveValue(value)
+}
+
+func isReadableUsageAPIKeyLabel(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" || len(value) > 32 {
+		return false
+	}
+	lower := strings.ToLower(value)
+	for _, prefix := range []string{"sk-", "nvapi-", "eyj", "rt_", "aiza", "venice_"} {
+		if strings.HasPrefix(lower, prefix) {
+			return false
+		}
+	}
+	for _, char := range value {
+		if char >= 'a' && char <= 'z' {
+			continue
+		}
+		if char >= 'A' && char <= 'Z' {
+			continue
+		}
+		if char >= '0' && char <= '9' {
+			continue
+		}
+		if char == '-' || char == '_' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func loadUsageEventSourceFilterOptions(c *gin.Context, usageIdentityProvider service.UsageIdentityProvider) ([]usageSourceFilterOption, error) {

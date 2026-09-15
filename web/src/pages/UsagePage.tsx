@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef, type KeyboardEvent, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ApiError, fetchAnalysis, fetchCpaApiKeyOptions, fetchCpaApiKeySettings, fetchStatus, fetchUpdateCheck, fetchUsageEventModelFilterOptions, fetchUsageEventSourceFilterOptions, fetchUsageEvents, logout, markStatusActive, updateCpaApiKeyAlias } from '@/lib/api';
-import type { AnalysisResponse, CpaApiKeyOption, CpaApiKeySettingsItem, OverviewRealtimeWindow, StatusResponse, UsageEvent, UsageSourceFilterOption } from '@/lib/types';
+import { ApiError, fetchAnalysis, fetchCpaApiKeyOptions, fetchCpaApiKeySettings, fetchStatus, fetchUpdateCheck, fetchUsageEventAPIKeyFilterOptions, fetchUsageEventModelFilterOptions, fetchUsageEventSourceFilterOptions, fetchUsageEvents, logout, markStatusActive, updateCpaApiKeyAlias } from '@/lib/api';
+import type { AnalysisResponse, CpaApiKeyOption, CpaApiKeySettingsItem, OverviewRealtimeWindow, StatusResponse, UsageAPIKeyFilterOption, UsageEvent, UsageSourceFilterOption } from '@/lib/types';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { Select } from '@/components/ui/Select';
@@ -164,12 +164,14 @@ export const shouldAutoRefreshUsageTab = ({
 
 type RequestEventFilterState = {
   model: string;
+  apiKey: string;
   source: string;
   result: string;
 };
 
 type RequestEventFilterOptionsState = {
   models: string[];
+  apiKeys: UsageAPIKeyFilterOption[];
   sources: UsageSourceFilterOption[];
 };
 
@@ -184,6 +186,7 @@ type RequestEventsPreferenceStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
 const DEFAULT_REQUEST_EVENT_FILTERS: RequestEventFilterState = {
   model: ALL_REQUEST_EVENTS_FILTER,
+  apiKey: ALL_REQUEST_EVENTS_FILTER,
   source: ALL_REQUEST_EVENTS_FILTER,
   result: ALL_REQUEST_EVENTS_FILTER,
 };
@@ -219,6 +222,7 @@ const normalizeRequestEventPreferenceFilters = (value: unknown): RequestEventFil
   const filters = isRecord(value) ? value : {};
   return {
     model: normalizeRequestEventFilterValue(filters.model),
+    apiKey: normalizeRequestEventFilterValue(filters.apiKey ?? filters.app),
     source: normalizeRequestEventFilterValue(filters.source),
     result: normalizeRequestEventResultFilter(filters.result),
   };
@@ -531,6 +535,7 @@ export const sanitizeRequestEventFilters = (
   if (!optionsLoaded) {
     return {
       model: normalizeRequestEventFilterValue(filters.model),
+      apiKey: normalizeRequestEventFilterValue(filters.apiKey),
       source: normalizeRequestEventFilterValue(filters.source),
       result,
     };
@@ -539,11 +544,14 @@ export const sanitizeRequestEventFilters = (
   const model = filters.model === ALL_REQUEST_EVENTS_FILTER || options.models.includes(filters.model)
     ? filters.model
     : ALL_REQUEST_EVENTS_FILTER;
+  const apiKey = filters.apiKey === ALL_REQUEST_EVENTS_FILTER || options.apiKeys.some((option) => option.value === filters.apiKey)
+    ? filters.apiKey
+    : ALL_REQUEST_EVENTS_FILTER;
   const source = filters.source === ALL_REQUEST_EVENTS_FILTER || options.sources.some((option) => option.value === filters.source)
     ? filters.source
     : ALL_REQUEST_EVENTS_FILTER;
 
-  return { model, source, result };
+  return { model, apiKey, source, result };
 };
 
 const isUsageTimeRange = (value: unknown): value is UsageTimeRange =>
@@ -823,8 +831,10 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   const [eventsTotalCount, setEventsTotalCount] = useState(0);
   const [eventsTotalPages, setEventsTotalPages] = useState(0);
   const [eventsModelOptions, setEventsModelOptions] = useState<string[]>([]);
+  const [eventsAPIKeyOptions, setEventsAPIKeyOptions] = useState<UsageAPIKeyFilterOption[]>([]);
   const [eventsSourceOptions, setEventsSourceOptions] = useState<UsageSourceFilterOption[]>([]);
   const [eventsModelFilter, setEventsModelFilter] = useState(initialRequestEventsPreferences.filters.model);
+  const [eventsAPIKeyFilter, setEventsAPIKeyFilter] = useState(initialRequestEventsPreferences.filters.apiKey);
   const [eventsSourceFilter, setEventsSourceFilter] = useState(initialRequestEventsPreferences.filters.source);
   const [eventsResultFilter, setEventsResultFilter] = useState(initialRequestEventsPreferences.filters.result);
   const [eventsVisibleColumnIds, setEventsVisibleColumnIds] = useState<RequestEventColumnId[]>(initialRequestEventsPreferences.visibleColumnIds);
@@ -1107,12 +1117,13 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
       pageSize: eventsPageSize,
       filters: {
         model: eventsModelFilter,
+        apiKey: eventsAPIKeyFilter,
         source: eventsSourceFilter,
         result: eventsResultFilter,
       },
       visibleColumnIds: eventsVisibleColumnIds,
     });
-  }, [eventsModelFilter, eventsPageSize, eventsResultFilter, eventsSourceFilter, eventsVisibleColumnIds]);
+  }, [eventsAPIKeyFilter, eventsModelFilter, eventsPageSize, eventsResultFilter, eventsSourceFilter, eventsVisibleColumnIds]);
 
   useEffect(() => {
     setEventsPage(1);
@@ -1197,15 +1208,17 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     setEventsFilterOptionsLoaded(false);
 
     try {
-      const [modelResponse, sourceResponse] = await Promise.all([
+      const [modelResponse, sourceResponse, apiKeyResponse] = await Promise.all([
         fetchUsageEventModelFilterOptions(controller.signal),
         fetchUsageEventSourceFilterOptions(controller.signal),
+        fetchUsageEventAPIKeyFilterOptions(controller.signal),
       ]);
       if (eventsFilterOptionsRequestControllerRef.current !== controller) {
         return;
       }
       setEventsModelOptions(modelResponse.models ?? []);
       setEventsSourceOptions(sourceResponse.sources ?? []);
+      setEventsAPIKeyOptions(apiKeyResponse.api_keys ?? []);
       setEventsFilterOptionsLoaded(true);
     } catch (error) {
       if (controller.signal.aborted) {
@@ -1214,6 +1227,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
       if (eventsFilterOptionsRequestControllerRef.current === controller) {
         setEventsModelOptions([]);
         setEventsSourceOptions([]);
+        setEventsAPIKeyOptions([]);
         setEventsFilterOptionsLoaded(false);
       }
       if (error instanceof ApiError && error.status === 401) {
@@ -1250,6 +1264,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
         page: eventsPage,
         pageSize: eventsPageSize,
         model: eventsModelFilter === ALL_REQUEST_EVENTS_FILTER ? undefined : eventsModelFilter,
+        apiKey: eventsAPIKeyFilter === ALL_REQUEST_EVENTS_FILTER ? undefined : eventsAPIKeyFilter,
         source: eventsSourceFilter === ALL_REQUEST_EVENTS_FILTER ? undefined : eventsSourceFilter,
         result: eventsResultFilter === ALL_REQUEST_EVENTS_FILTER ? undefined : eventsResultFilter,
         apiKeyId: selectedApiKeyId,
@@ -1284,7 +1299,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
         eventsRequestControllerRef.current = null;
       }
     }
-  }, [eventsModelFilter, eventsPage, eventsPageSize, eventsResultFilter, eventsSourceFilter, getEventQueryWindow, onAuthRequired, selectedApiKeyId, timeRange]);
+  }, [eventsAPIKeyFilter, eventsModelFilter, eventsPage, eventsPageSize, eventsResultFilter, eventsSourceFilter, getEventQueryWindow, onAuthRequired, selectedApiKeyId, timeRange]);
 
   const resetEventsPage = useCallback(() => {
     setEventsPage(1);
@@ -1297,6 +1312,11 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
 
   const handleEventsModelFilterChange = useCallback((model: string) => {
     setEventsModelFilter(model);
+    resetEventsPage();
+  }, [resetEventsPage]);
+
+  const handleEventsAPIKeyFilterChange = useCallback((apiKey: string) => {
+    setEventsAPIKeyFilter(apiKey);
     resetEventsPage();
   }, [resetEventsPage]);
 
@@ -1467,11 +1487,13 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     const next = sanitizeRequestEventFilters(
       {
         model: eventsModelFilter,
+        apiKey: eventsAPIKeyFilter,
         source: eventsSourceFilter,
         result: eventsResultFilter,
       },
       {
         models: eventsModelOptions,
+        apiKeys: eventsAPIKeyOptions,
         sources: eventsSourceOptions,
       },
       eventsFilterOptionsLoaded,
@@ -1480,16 +1502,19 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     if (next.model !== eventsModelFilter) {
       setEventsModelFilter(next.model);
     }
+    if (next.apiKey !== eventsAPIKeyFilter) {
+      setEventsAPIKeyFilter(next.apiKey);
+    }
     if (next.source !== eventsSourceFilter) {
       setEventsSourceFilter(next.source);
     }
     if (next.result !== eventsResultFilter) {
       setEventsResultFilter(next.result);
     }
-    if (next.model !== eventsModelFilter || next.source !== eventsSourceFilter || next.result !== eventsResultFilter) {
+    if (next.model !== eventsModelFilter || next.apiKey !== eventsAPIKeyFilter || next.source !== eventsSourceFilter || next.result !== eventsResultFilter) {
       resetEventsPage();
     }
-  }, [eventsFilterOptionsLoaded, eventsModelFilter, eventsModelOptions, eventsResultFilter, eventsSourceFilter, eventsSourceOptions, resetEventsPage]);
+  }, [eventsAPIKeyFilter, eventsAPIKeyOptions, eventsFilterOptionsLoaded, eventsModelFilter, eventsModelOptions, eventsResultFilter, eventsSourceFilter, eventsSourceOptions, resetEventsPage]);
 
   const lastSyncAt = useMemo(() => {
     if (!status?.last_run_at) return null;
@@ -1841,14 +1866,17 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
                   totalCount={eventsTotalCount}
                   totalPages={eventsTotalPages}
                   modelOptions={eventsModelOptions}
+                  apiKeyOptions={eventsAPIKeyOptions}
                   sourceOptions={eventsSourceOptions}
                   modelFilter={eventsModelFilter}
+                  apiKeyFilter={eventsAPIKeyFilter}
                   sourceFilter={eventsSourceFilter}
                   resultFilter={eventsResultFilter}
                   visibleColumnIds={eventsVisibleColumnIds}
                   onPageChange={setEventsPage}
                   onPageSizeChange={handleEventsPageSizeChange}
                   onModelFilterChange={handleEventsModelFilterChange}
+                  onAPIKeyFilterChange={handleEventsAPIKeyFilterChange}
                   onSourceFilterChange={handleEventsSourceFilterChange}
                   onResultFilterChange={handleEventsResultFilterChange}
                   onVisibleColumnIdsChange={setEventsVisibleColumnIds}

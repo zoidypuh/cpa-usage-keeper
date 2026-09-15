@@ -14,7 +14,8 @@ type UsageEventsPageRecord struct {
 
 // UsageEventFilterOptionsRecord 是 usage events 筛选项的仓储查询结果。
 type UsageEventFilterOptionsRecord struct {
-	Models []string
+	Models  []string
+	APIKeys []string
 }
 
 // UsageEventRecord 是单条 usage event 的查询结果。

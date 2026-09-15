@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { appPath, deleteAuthFiles, fetchAnalysis, fetchCpaApiKeyOptions, fetchCpaApiKeys, fetchCpaApiKeySettings, fetchKeyOverview, fetchKeyOverviewRealtime, fetchUsageOverview, fetchUsageOverviewRealtime, fetchUsageQuotaCache, fetchUsageQuotaInspectionStatus, fetchUpdateCheck, fetchUsageEventModelFilterOptions, fetchUsageEventSourceFilterOptions, fetchUsageEvents, fetchUsageIdentities, fetchUsageIdentitiesPage, fetchUsageQuotaRefreshTask, loginWithCPAAPIKey, logout, markStatusActive, refreshUsageQuotas, resetUsageQuota, setAuthFilesDisabled, startUsageQuotaInspection, updateCpaApiKeyAlias } from './api';
+import { appPath, deleteAuthFiles, fetchAnalysis, fetchCpaApiKeyOptions, fetchCpaApiKeys, fetchCpaApiKeySettings, fetchKeyOverview, fetchKeyOverviewRealtime, fetchUsageOverview, fetchUsageOverviewRealtime, fetchUsageQuotaCache, fetchUsageQuotaInspectionStatus, fetchUpdateCheck, fetchUsageEventAPIKeyFilterOptions, fetchUsageEventModelFilterOptions, fetchUsageEventSourceFilterOptions, fetchUsageEvents, fetchUsageIdentities, fetchUsageIdentitiesPage, fetchUsageQuotaRefreshTask, loginWithCPAAPIKey, logout, markStatusActive, refreshUsageQuotas, resetUsageQuota, setAuthFilesDisabled, startUsageQuotaInspection, updateCpaApiKeyAlias } from './api';
 
 describe('fetchUsageEvents', () => {
   afterEach(() => {
@@ -197,6 +197,25 @@ describe('fetchUsageEvents', () => {
     expect(init).toMatchObject({ credentials: 'include', signal, cache: 'no-store' });
   });
 
+  it('loads API key filter options without query params', async () => {
+    vi.stubGlobal('window', { __APP_BASE_PATH__: undefined });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ api_keys: [{ value: 'hermes', label: 'hermes' }] }),
+    } as Response);
+    const signal = new AbortController().signal;
+
+    const response = await fetchUsageEventAPIKeyFilterOptions(signal);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    const parsed = new URL(String(url), 'http://localhost');
+
+    expect(response.api_keys).toEqual([{ value: 'hermes', label: 'hermes' }]);
+    expect(parsed.pathname).toBe('/api/v1/usage/events/filters/api-keys');
+    expect(parsed.search).toBe('');
+    expect(init).toMatchObject({ credentials: 'include', signal, cache: 'no-store' });
+  });
+
   it('passes pagination and server-side filters as query params', async () => {
     vi.stubGlobal('window', { __APP_BASE_PATH__: undefined });
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
@@ -209,6 +228,7 @@ describe('fetchUsageEvents', () => {
       page: 3,
       pageSize: 100,
       model: 'claude-sonnet',
+      apiKey: 'hermes',
       source: 'authidx-source-a',
       result: 'failed',
     });
@@ -223,6 +243,7 @@ describe('fetchUsageEvents', () => {
     expect(parsed.searchParams.get('page')).toBe('3');
     expect(parsed.searchParams.get('page_size')).toBe('100');
     expect(parsed.searchParams.get('model')).toBe('claude-sonnet');
+    expect(parsed.searchParams.get('api_key')).toBe('hermes');
     expect(parsed.searchParams.get('source')).toBe('authidx-source-a');
     expect(parsed.searchParams.get('result')).toBe('failed');
     expect(parsed.searchParams.get('auth_index')).toBeNull();

@@ -1,4 +1,4 @@
-import { type AnalysisResponse, type AuthFilesManagementResponse, type AuthSessionResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type KeyOverviewTimeRange, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingEntry, type PricingResponse, type PricingSyncPreviewResponse, type StatusResponse, type UpdateCheckResponse, type UsageEventModelFilterOptionsResponse, type UsageEventSourceFilterOptionsResponse, type UsedModelsResponse, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentityAuthType, type UsageOverviewResponse, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetResponse } from './types'
+import { type AnalysisResponse, type AuthFilesManagementResponse, type AuthSessionResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type KeyOverviewTimeRange, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingEntry, type PricingResponse, type PricingSyncPreviewResponse, type StatusResponse, type UpdateCheckResponse, type UsageEventAPIKeyFilterOptionsResponse, type UsageEventModelFilterOptionsResponse, type UsageEventSourceFilterOptionsResponse, type UsedModelsResponse, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentityAuthType, type UsageOverviewResponse, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetResponse } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -220,12 +220,13 @@ export async function fetchUsageOverviewRealtime(options: FetchUsageOverviewReal
 }
 
 export interface FetchUsageEventsOptions {
-  page?: number
-  pageSize?: number
-  model?: string
-  // Request Events 页面沿用 Source 命名；这里传的是 usage identity，后端会转换为 auth_index 查询。
-  source?: string
-  result?: string
+	page?: number
+	pageSize?: number
+	model?: string
+	apiKey?: string
+	// Request Events 页面沿用 Source 命名；这里传的是 usage identity，后端会转换为 auth_index 查询。
+	source?: string
+	result?: string
   apiKeyId?: string
 }
 
@@ -243,6 +244,14 @@ export async function fetchUsageEventSourceFilterOptions(signal?: AbortSignal): 
     await parseApiError(response, `Failed to load usage event source filters: ${response.status}`)
   }
   return response.json()
+}
+
+export async function fetchUsageEventAPIKeyFilterOptions(signal?: AbortSignal): Promise<UsageEventAPIKeyFilterOptionsResponse> {
+	const response = await apiFetch(apiPath('/usage/events/filters/api-keys'), { signal, cache: 'no-store' })
+	if (!response.ok) {
+		await parseApiError(response, `Failed to load usage event API key filters: ${response.status}`)
+	}
+	return response.json()
 }
 
 export async function fetchUsageEvents(range: string, start?: string, end?: string, signal?: AbortSignal, options?: FetchUsageEventsOptions): Promise<UsageEventsResponse> {
@@ -264,6 +273,10 @@ export async function fetchUsageEvents(range: string, start?: string, end?: stri
   if (model) {
     params.set('model', model)
   }
+	const apiKey = options?.apiKey?.trim()
+	if (apiKey) {
+		params.set('api_key', apiKey)
+	}
   const source = options?.source?.trim()
   if (source) {
     // Source 下拉的 value 不是 usage_events.source 原始字段，而是后端用于 auth_index 查询的 identity。

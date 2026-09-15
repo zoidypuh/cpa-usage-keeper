@@ -204,6 +204,12 @@ export interface UsageEvent {
   pricing_style?: PricingStyle
 }
 
+export interface UsageAPIKeyFilterOption {
+	value: string
+	label: string
+	displayName?: string
+}
+
 export interface UsageSourceFilterOption {
   value: string
   label: string
@@ -224,6 +230,10 @@ export interface UsageEventModelFilterOptionsResponse {
 
 export interface UsageEventSourceFilterOptionsResponse {
   sources: UsageSourceFilterOption[]
+}
+
+export interface UsageEventAPIKeyFilterOptionsResponse {
+	api_keys: UsageAPIKeyFilterOption[]
 }
 
 export type UsageIdentityAuthType = 1 | 2

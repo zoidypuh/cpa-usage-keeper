@@ -52,13 +52,16 @@ const renderCard = (props: Partial<React.ComponentProps<typeof RequestEventsDeta
       totalCount={120}
       totalPages={6}
       modelOptions={['claude-sonnet', 'claude-opus']}
+      apiKeyOptions={[{ value: 'hermes', label: 'hermes' }, { value: 'mem0', label: 'mem0' }]}
       sourceOptions={[{ value: 'source-a', label: 'Provider A' }, { value: 'source-b', label: 'Provider B' }]}
       modelFilter="__all__"
+      apiKeyFilter="__all__"
       sourceFilter="__all__"
       resultFilter="__all__"
       onPageChange={() => undefined}
       onPageSizeChange={() => undefined}
       onModelFilterChange={() => undefined}
+      onAPIKeyFilterChange={() => undefined}
       onSourceFilterChange={() => undefined}
       onResultFilterChange={() => undefined}
       {...props}
@@ -216,10 +219,11 @@ describe('RequestEventsDetailsCard pagination', () => {
     expect(html).toContain('aria-label="Source"><span class="_triggerText_c80422 ">Team Prefix</span>');
   });
 
-  it('uses backend model and source options instead of current page grouping', () => {
-    const html = renderCard({ modelFilter: 'claude-opus', sourceFilter: 'source-b' });
+  it('uses backend model, API key, and source options instead of current page grouping', () => {
+    const html = renderCard({ modelFilter: 'claude-opus', apiKeyFilter: 'mem0', sourceFilter: 'source-b' });
 
     expect(html).toContain('aria-label="Model"><span class="_triggerText_c80422 ">claude-opus</span>');
+    expect(html).toContain('aria-label="App"><span class="_triggerText_c80422 ">mem0</span>');
     expect(html).toContain('aria-label="Source"><span class="_triggerText_c80422 ">Provider B</span>');
   });
 

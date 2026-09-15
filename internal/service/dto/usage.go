@@ -26,6 +26,7 @@ type UsageFilter struct {
 	Source          string
 	AuthIndex       string
 	APIKeyID        string
+	AppAPIGroupKey  string
 	Result          string
 }
 
@@ -41,7 +42,8 @@ type UsageEventsPage struct {
 
 // UsageEventFilterOptions 是 usage events 筛选项的服务层结果。
 type UsageEventFilterOptions struct {
-	Models []string
+	Models  []string
+	APIKeys []string
 }
 
 // UsageEventRecord 是单条 usage event 的服务层结果。

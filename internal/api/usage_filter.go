@@ -102,6 +102,7 @@ func parseUsageFilterQuery(req *http.Request, anchor time.Time) (servicedto.Usag
 	}
 	filter.Offset = (filter.Page - 1) * filter.PageSize
 	filter.Model = strings.TrimSpace(query.Get("model"))
+	filter.AppAPIGroupKey = firstNonEmptyQueryValue(query.Get("api_key"), query.Get("app"), query.Get("api_group_key"))
 	// Request Events 前端参数仍叫 source，但它的值是 usage identity；路由层会转换成 auth_index 查询。
 	filter.Source = strings.TrimSpace(query.Get("source"))
 	filter.AuthIndex = strings.TrimSpace(query.Get("auth_index"))
@@ -162,6 +163,15 @@ func parseUsageFilterQuery(req *http.Request, anchor time.Time) (servicedto.Usag
 		filter.EndTime = &endTime
 		return filter, nil
 	}
+}
+
+func firstNonEmptyQueryValue(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func usageFilterRetentionStart(anchor time.Time) (time.Time, bool) {

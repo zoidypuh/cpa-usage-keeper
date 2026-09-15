@@ -472,11 +472,13 @@ describe('UsagePage request event filters', () => {
     const next = sanitizeRequestEventFilters(
       {
         model: 'claude-opus',
+        apiKey: 'hermes',
         source: 'authidx-source-b',
         result: 'failed',
       },
       {
         models: [],
+        apiKeys: [],
         sources: [],
       },
       false,
@@ -484,46 +486,53 @@ describe('UsagePage request event filters', () => {
 
     expect(next).toEqual({
       model: 'claude-opus',
+      apiKey: 'hermes',
       source: 'authidx-source-b',
       result: 'failed',
     });
   });
 
-  it('clears model and source filters that are no longer available', () => {
+  it('clears model, API key, and source filters that are no longer available', () => {
     const next = sanitizeRequestEventFilters(
       {
         model: 'claude-opus',
+        apiKey: 'hermes',
         source: 'authidx-source-b',
         result: 'failed',
       },
       {
         models: ['claude-sonnet'],
+        apiKeys: [{ value: 'mem0', label: 'mem0' }],
         sources: [{ value: 'authidx-source-a', label: 'authidx-source-a' }],
       },
     );
 
     expect(next).toEqual({
       model: '__all__',
+      apiKey: '__all__',
       source: '__all__',
       result: 'failed',
     });
   });
 
-  it('keeps source filters that are still available after refreshing options', () => {
+  it('keeps API key and source filters that are still available after refreshing options', () => {
     const next = sanitizeRequestEventFilters(
       {
         model: 'claude-sonnet',
+        apiKey: 'hermes',
         source: 'authidx-source-a',
         result: 'success',
       },
       {
         models: ['claude-sonnet'],
+        apiKeys: [{ value: 'hermes', label: 'hermes' }],
         sources: [{ value: 'authidx-source-a', label: 'authidx-source-a' }],
       },
     );
 
     expect(next).toEqual({
       model: 'claude-sonnet',
+      apiKey: 'hermes',
       source: 'authidx-source-a',
       result: 'success',
     });
@@ -537,6 +546,7 @@ describe('UsagePage request event preferences', () => {
       pageSize: 500,
       filters: {
         model: 'claude-opus',
+        apiKey: 'hermes',
         source: 'authidx-source-b',
         result: 'failed',
       },
@@ -548,10 +558,31 @@ describe('UsagePage request event preferences', () => {
       pageSize: 500,
       filters: {
         model: 'claude-opus',
+        apiKey: 'hermes',
         source: 'authidx-source-b',
         result: 'failed',
       },
       visibleColumnIds: ['model', 'timestamp', 'total_cost'],
+    });
+  });
+
+  it('migrates the legacy app request event filter into apiKey', () => {
+    const preferences = normalizeRequestEventsPreferences({
+      version: 1,
+      pageSize: 100,
+      filters: {
+        model: 'claude-opus',
+        app: 'hermes',
+        source: 'authidx-source-b',
+        result: 'failed',
+      },
+    });
+
+    expect(preferences.filters).toEqual({
+      model: 'claude-opus',
+      apiKey: 'hermes',
+      source: 'authidx-source-b',
+      result: 'failed',
     });
   });
 
@@ -561,6 +592,7 @@ describe('UsagePage request event preferences', () => {
       pageSize: 999,
       filters: {
         model: 42,
+        apiKey: '',
         source: '',
         result: 'maybe',
       },
@@ -570,6 +602,7 @@ describe('UsagePage request event preferences', () => {
     expect(preferences.pageSize).toBe(100);
     expect(preferences.filters).toEqual({
       model: '__all__',
+      apiKey: '__all__',
       source: '__all__',
       result: '__all__',
     });
@@ -598,6 +631,7 @@ describe('UsagePage request event preferences', () => {
       pageSize: 100,
       filters: {
         model: '__all__',
+        apiKey: '__all__',
         source: '__all__',
         result: '__all__',
       },
@@ -610,6 +644,7 @@ describe('UsagePage request event preferences', () => {
       pageSize: 100,
       filters: {
         model: '__all__',
+        apiKey: '__all__',
         source: '__all__',
         result: '__all__',
       },
@@ -630,6 +665,7 @@ describe('UsagePage request event preferences', () => {
       pageSize: 50,
       filters: {
         model: 'gpt-4.1',
+        apiKey: 'hermes',
         source: 'source-a',
         result: 'success',
       },
@@ -642,6 +678,7 @@ describe('UsagePage request event preferences', () => {
       pageSize: 50,
       filters: {
         model: 'gpt-4.1',
+        apiKey: 'hermes',
         source: 'source-a',
         result: 'success',
       },

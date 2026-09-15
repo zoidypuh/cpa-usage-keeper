@@ -404,17 +404,22 @@ func (s *usageService) ListUsageEvents(_ context.Context, filter servicedto.Usag
 	if err != nil {
 		return nil, err
 	}
+	appAPIGroupKey := filter.AppAPIGroupKey
+	if strings.TrimSpace(appAPIGroupKey) != "" {
+		apiGroupKey = ""
+	}
 	page, err := repository.ListUsageEventsWithFilter(s.db, repodto.UsageQueryFilter{
-		StartTime:   filter.StartTime,
-		EndTime:     filter.EndTime,
-		Limit:       filter.Limit,
-		Page:        filter.Page,
-		PageSize:    filter.PageSize,
-		Offset:      filter.Offset,
-		Model:       filter.Model,
-		AuthIndex:   filter.AuthIndex,
-		APIGroupKey: apiGroupKey,
-		Result:      filter.Result,
+		StartTime:      filter.StartTime,
+		EndTime:        filter.EndTime,
+		Limit:          filter.Limit,
+		Page:           filter.Page,
+		PageSize:       filter.PageSize,
+		Offset:         filter.Offset,
+		Model:          filter.Model,
+		AuthIndex:      filter.AuthIndex,
+		APIGroupKey:    apiGroupKey,
+		AppAPIGroupKey: appAPIGroupKey,
+		Result:         filter.Result,
 	})
 	if err != nil {
 		return nil, err
@@ -460,5 +465,5 @@ func (s *usageService) ListUsageEventFilterOptions(_ context.Context, filter ser
 	if err != nil {
 		return nil, err
 	}
-	return &servicedto.UsageEventFilterOptions{Models: options.Models}, nil
+	return &servicedto.UsageEventFilterOptions{Models: options.Models, APIKeys: options.APIKeys}, nil
 }

@@ -15,7 +15,7 @@ import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Select } from '@/components/ui/Select';
 import { IconCheck, IconChevronDown } from '@/components/ui/icons';
-import type { UsageEvent, UsageSourceFilterOption } from '@/lib/types';
+import type { UsageAPIKeyFilterOption, UsageEvent, UsageSourceFilterOption } from '@/lib/types';
 import {
   calculateCacheRate,
   formatDurationMs,
@@ -147,8 +147,10 @@ export interface RequestEventsDetailsCardProps {
   totalCount: number;
   totalPages: number;
   modelOptions: string[];
+  apiKeyOptions: UsageAPIKeyFilterOption[];
   sourceOptions: UsageSourceFilterOption[];
   modelFilter: string;
+  apiKeyFilter: string;
   sourceFilter: string;
   resultFilter: string;
   initialVisibleColumnIds?: readonly RequestEventColumnId[];
@@ -156,6 +158,7 @@ export interface RequestEventsDetailsCardProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onModelFilterChange: (model: string) => void;
+  onAPIKeyFilterChange: (apiKey: string) => void;
   onSourceFilterChange: (source: string) => void;
   onResultFilterChange: (result: string) => void;
   onVisibleColumnIdsChange?: (columnIds: RequestEventColumnId[]) => void;
@@ -481,8 +484,10 @@ export function RequestEventsDetailsCard({
   totalCount,
   totalPages,
   modelOptions: backendModelOptions,
+  apiKeyOptions: backendAPIKeyOptions,
   sourceOptions: backendSourceOptions,
   modelFilter,
+  apiKeyFilter,
   sourceFilter,
   resultFilter,
   initialVisibleColumnIds,
@@ -490,6 +495,7 @@ export function RequestEventsDetailsCard({
   onPageChange,
   onPageSizeChange,
   onModelFilterChange,
+  onAPIKeyFilterChange,
   onSourceFilterChange,
   onResultFilterChange,
   onVisibleColumnIdsChange,
@@ -603,6 +609,16 @@ export function RequestEventsDetailsCard({
     return appendSelectedOption(options, sourceFilter, selectedLabel || sourceFilter);
   }, [backendSourceOptions, sourceFilter, t]);
 
+  const requestAPIKeyOptions = useMemo(() => {
+    const options = [
+      { value: ALL_FILTER, label: t('usage_stats.filter_all') },
+      ...backendAPIKeyOptions.map((apiKey) => ({ value: apiKey.value, label: apiKey.displayName || apiKey.label || apiKey.value })),
+    ];
+    const selectedAPIKey = backendAPIKeyOptions.find((apiKey) => apiKey.value === apiKeyFilter);
+    const selectedLabel = selectedAPIKey?.displayName || selectedAPIKey?.label;
+    return appendSelectedOption(options, apiKeyFilter, selectedLabel || apiKeyFilter);
+  }, [apiKeyFilter, backendAPIKeyOptions, t]);
+
   const resultOptions = useMemo(
     () => [
       { value: ALL_FILTER, label: t('usage_stats.filter_all') },
@@ -620,12 +636,17 @@ export function RequestEventsDetailsCard({
     () => new Set(sourceOptions.map((option) => option.value)),
     [sourceOptions]
   );
+  const requestAPIKeyOptionSet = useMemo(
+    () => new Set(requestAPIKeyOptions.map((option) => option.value)),
+    [requestAPIKeyOptions]
+  );
   const resultOptionSet = useMemo(
     () => new Set(resultOptions.map((option) => option.value)),
     [resultOptions]
   );
 
   const effectiveModelFilter = modelOptionSet.has(modelFilter) ? modelFilter : ALL_FILTER;
+  const effectiveAPIKeyFilter = requestAPIKeyOptionSet.has(apiKeyFilter) ? apiKeyFilter : ALL_FILTER;
   const effectiveSourceFilter = sourceOptionSet.has(sourceFilter) ? sourceFilter : ALL_FILTER;
   const effectiveResultFilter = resultOptionSet.has(resultFilter) ? resultFilter : ALL_FILTER;
 
@@ -797,6 +818,7 @@ export function RequestEventsDetailsCard({
 
   const hasActiveFilters =
     modelFilter !== ALL_FILTER ||
+    apiKeyFilter !== ALL_FILTER ||
     sourceFilter !== ALL_FILTER ||
     resultFilter !== ALL_FILTER;
 
@@ -807,6 +829,7 @@ export function RequestEventsDetailsCard({
 
   const handleClearFilters = () => {
     onModelFilterChange(ALL_FILTER);
+    onAPIKeyFilterChange(ALL_FILTER);
     onSourceFilterChange(ALL_FILTER);
     onResultFilterChange(ALL_FILTER);
   };
@@ -847,6 +870,19 @@ export function RequestEventsDetailsCard({
               onChange={onModelFilterChange}
               className={`${styles.requestEventsSelect} ${styles.usagePillControl}`}
               ariaLabel={t('usage_stats.request_events_filter_model')}
+              fullWidth={false}
+            />
+          </label>
+          <label className={styles.requestEventsFilterItem}>
+            <span className={styles.requestEventsFilterLabel}>
+              {t('usage_stats.request_events_filter_api_key')}
+            </span>
+            <Select
+              value={effectiveAPIKeyFilter}
+              options={requestAPIKeyOptions}
+              onChange={onAPIKeyFilterChange}
+              className={`${styles.requestEventsSelect} ${styles.usagePillControl}`}
+              ariaLabel={t('usage_stats.request_events_filter_api_key')}
               fullWidth={false}
             />
           </label>

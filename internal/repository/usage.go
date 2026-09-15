@@ -122,7 +122,11 @@ func ListUsageEventFilterOptionsWithFilter(db *gorm.DB, filter dto.UsageQueryFil
 	if err != nil {
 		return nil, err
 	}
-	return &dto.UsageEventFilterOptionsRecord{Models: models}, nil
+	apiKeys, err := listUsageEventAPIKeyFilterOptions(db, filter)
+	if err != nil {
+		return nil, err
+	}
+	return &dto.UsageEventFilterOptionsRecord{Models: models, APIKeys: apiKeys}, nil
 }
 
 func listUsageEventModelFilterOptions(db *gorm.DB, filter dto.UsageQueryFilter) ([]string, error) {
@@ -133,6 +137,16 @@ func listUsageEventModelFilterOptions(db *gorm.DB, filter dto.UsageQueryFilter) 
 	var values []string
 	if err := query.Select("DISTINCT model").Where("model <> ''").Order("model ASC").Pluck("model", &values).Error; err != nil {
 		return nil, fmt.Errorf("load usage event model filter options: %w", err)
+	}
+	return values, nil
+}
+
+func listUsageEventAPIKeyFilterOptions(db *gorm.DB, filter dto.UsageQueryFilter) ([]string, error) {
+	query := applyUsageEventFilterOptionsQuery(queryUsageEvents(db), filter)
+
+	var values []string
+	if err := query.Select("DISTINCT api_group_key").Where("api_group_key <> ''").Order("api_group_key ASC").Pluck("api_group_key", &values).Error; err != nil {
+		return nil, fmt.Errorf("load usage event API key filter options: %w", err)
 	}
 	return values, nil
 }
@@ -253,6 +267,9 @@ func applyUsageEventListQuery(query *gorm.DB, filter dto.UsageQueryFilter) *gorm
 	query = applyUsageQueryWindow(query, filter)
 	if apiGroupKey := strings.TrimSpace(filter.APIGroupKey); apiGroupKey != "" {
 		query = query.Where("api_group_key = ?", apiGroupKey)
+	}
+	if appAPIGroupKey := strings.TrimSpace(filter.AppAPIGroupKey); appAPIGroupKey != "" {
+		query = query.Where("api_group_key = ?", appAPIGroupKey)
 	}
 	if model := strings.TrimSpace(filter.Model); model != "" {
 		query = query.Where("model = ?", model)
