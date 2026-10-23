@@ -22,12 +22,14 @@ type ProviderKeyConfig struct {
 
 // OpenAICompatibilityConfig 保留组级配置，成员只提供当前 Key 与运行时标识。
 type OpenAICompatibilityConfig struct {
-	Name          string              `json:"name"`
-	Prefix        string              `json:"prefix"`
-	BaseURL       string              `json:"base-url"`
-	Priority      *int                `json:"priority"`
-	Disabled      *bool               `json:"disabled"`
-	Note          *string             `json:"note"`
+	Name     string  `json:"name"`
+	Prefix   string  `json:"prefix"`
+	BaseURL  string  `json:"base-url"`
+	Priority *int    `json:"priority"`
+	Disabled *bool   `json:"disabled"`
+	Note     *string `json:"note"`
+	// AuthIndex 保存 provider 级 auth_index；无 keys 的 keyless provider（如本地 LM Studio）只有这一级身份。
+	AuthIndex     string              `json:"auth_index"`
 	APIKeyEntries []OpenAIApiKeyEntry `json:"keys"`
 }
 

@@ -32,6 +32,8 @@ func openAICompatibilitySource() source {
 			prefix := strings.TrimSpace(provider.Prefix)
 			// baseURL 只来自 provider 层独立字段。
 			baseURL := strings.TrimSpace(provider.BaseURL)
+			// providerAuthIndex 是 provider 级身份；keyless provider（无 api-key-entries）只有它。
+			providerAuthIndex := strings.TrimSpace(provider.AuthIndex)
 			// 每个 API key entry 独立生成一条 Credential。
 			for _, entry := range provider.APIKeyEntries {
 				// lookupKey 只来自当前 entry 的 API Key。
@@ -65,6 +67,22 @@ func openAICompatibilitySource() source {
 				}
 				// 有效 entry 按原顺序加入来源结果。
 				credentials = append(credentials, credential)
+			}
+			// keyless provider 回退：没有有效 api-key entry 但有 provider 级 auth-index 时，
+			// 用 provider 级身份生成一条 Credential（LookupKey 为空），否则其 usage 事件
+			// 会因无 identity 而被前端标记为 Deleted。
+			if len(provider.APIKeyEntries) == 0 && providerAuthIndex != "" && displayName != "" {
+				credentials = append(credentials, Credential{
+					LookupKey:    "",
+					Prefix:       prefix,
+					ProviderType: item.providerType,
+					DisplayName:  displayName,
+					AuthIndex:    providerAuthIndex,
+					BaseURL:      baseURL,
+					Priority:     provider.Priority,
+					Disabled:     provider.Disabled,
+					Note:         provider.Note,
+				})
 			}
 		}
 		// 成功 endpoint 无论 credentials 是否为空都标记 fetched。
